@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Nguyen Van A",
+    "uuid": "123e4567-e89b-12d3-a456-426614174000",
+    "luckycode": "X9AB12"
+  },
+  {
+    "name": "Tran Thi B",
+    "uuid": "123e4567-e89b-12d3-a456-426614174001",
+    "luckycode": "LM5P3Z"
+  },
+  {
+    "name": "Le Van C",
+    "uuid": "123e4567-e89b-12d3-a456-426614174002",
+    "luckycode": "QW7E8R"
+  },
+  {
+    "name": "Pham Thi D",
+    "uuid": "123e4567-e89b-12d3-a456-426614174003",
+    "luckycode": "KJ9UYT"
+  },
+  {
+    "name": "Nguyen Van DE",
+    "uuid": "123e4567-e89f-12d3-a456-426614174000",
+    "luckycode": "X9AB13"
+  }
+]
