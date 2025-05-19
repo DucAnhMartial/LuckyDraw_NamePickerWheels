@@ -16,7 +16,7 @@ export default function SpinningNameWheel({ participants }) {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-4xl font-bold text-white animate-pulse">
-        {`${participants[currentIndex].name} - ${participants[currentIndex].luckycode}`}
+        {`${participants[currentIndex].display_name} - ${participants[currentIndex].phone}`}
       </div>
     </div>
   )

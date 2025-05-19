@@ -163,11 +163,11 @@ export default function PulseDots({ winner, isDrawing, participants, selectedPri
                           className='mt-6'
                         >
                           <h3 className='text-4xl font-bold bg-gradient-to-r from-yellow-600 to-red-600 bg-clip-text text-transparent'>
-                            {winner?.name}
+                            {winner?.display_name}
                           </h3>
                           <div className='inline-flex items-center justify-center gap-2 bg-red-100 text-red-700 px-5 py-2.5 rounded-full text-xl font-medium mt-3'>
                             <span>Mã số:</span>
-                            <span className='font-bold'>{winner?.luckycode}</span>
+                            <span className='font-bold'>{winner?.phone}</span>
                           </div>
                         </motion.div>
 
