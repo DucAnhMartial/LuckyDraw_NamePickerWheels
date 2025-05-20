@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
@@ -9,35 +8,49 @@ import BorderBg from '@/components/BorderBg'
 import PopMenu from '@/components/PopMenu'
 import Confetti from '@/components/confetti'
 
-import { getDataListPrizes, getListAttendees } from '@/api/getData'
+import listDataGifts from '@/data/gifts'
+import listAttendeesGifts from '@/data/people'
 
 function LuckyDraw() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isDrawing, setDrawing] = useState(false)
   const [winner, setWinner] = useState(null)
-  const [selectedGift, setSelectedGift] = useState(null) // ✅ Lưu phần quà quay trúng
+  const [selectedGift, setSelectedGift] = useState(null)
   const [drawCount, setDrawCount] = useState(0)
   const [showConfetti, setShowConfetti] = useState(false)
-
-  const [attendees, setAttendees] = useState([])
-  const [gift, setGift] = useState([])
+  const [attendees, setAttendees] = useState(listAttendeesGifts)
+  const [gift, setGift] = useState(listDataGifts)
   const [optionRemovePlayer, setOptionRemovePlayer] = useState(false)
   const [optionRemoveGift, setOptionRemoveGift] = useState(false)
 
-  useEffect(() => {
-    async function fetchData() {
-      const prizeData = await getDataListPrizes()
-      const attendeesFetch = await getListAttendees()
-      setGift(prizeData)
-      setAttendees(attendeesFetch)
+  // Hàm xử lý khi dialog mở/đóng
+  const handleDialogOpen = (isOpen) => {
+    setShowConfetti(isOpen)
+    if (!isOpen) {
+      setWinner(null) // Đặt lại winner khi dialog đóng
+    }
+  }
+
+  // Hàm xử lý khi nhận winner từ component con PulseDots
+  const handleWinnerSelected = (selectedWinner) => {
+    setWinner(selectedWinner)
+    // Xử lý logic bổ sung khi nhận được winner
+    if (optionRemovePlayer && selectedWinner?.id) {
+      setAttendees((prev) => prev.filter((p) => p.id !== selectedWinner.id))
     }
 
-    fetchData()
-  }, [])
-
-  const handleClick = () => {
-    const nextIndex = (selectedIndex + 1) % gift.length
-    setSelectedIndex(nextIndex)
+    if (optionRemoveGift) {
+      const indexToRemove = selectedIndex
+      setGift((currentGifts) => {
+        const newGifts = currentGifts.filter((_, index) => index !== indexToRemove)
+        if (newGifts.length === 0) {
+          setSelectedIndex(0)
+        } else if (indexToRemove >= newGifts.length) {
+          setSelectedIndex(0)
+        }
+        return newGifts
+      })
+    }
   }
 
   const drawWiner = () => {
@@ -45,40 +58,15 @@ function LuckyDraw() {
 
     const prizeToAssign = gift[selectedIndex]
     setSelectedGift(prizeToAssign)
-
     setDrawing(true)
     setWinner(null)
     setShowConfetti(false)
 
-    const randomIndex = Math.floor(Math.random() * attendees.length)
-    const selectedWinner = attendees[randomIndex]
-
+    // Không cần xử lý winner ở đây nữa vì sẽ nhận từ component con
     setTimeout(() => {
-      setWinner(selectedWinner)
       setDrawing(false)
-      setDrawCount(prev => prev + 1)
-      setShowConfetti(true)
-
-      if (optionRemovePlayer) {
-        setAttendees(prev => prev.filter(p => p.uuid !== selectedWinner.uuid))
-      }
-
-      if (optionRemoveGift) {
-        const indexToRemove = selectedIndex
-
-        setGift(currentGifts => {
-          const newGifts = currentGifts.filter((_, index) => index !== indexToRemove)
-
-          if (newGifts.length === 0) {
-            setSelectedIndex(0)
-          } else if (indexToRemove >= newGifts.length) {
-            setSelectedIndex(0)
-          }
-
-          return newGifts
-        })
-      }
-
+      setDrawCount((prev) => prev + 1)
+      // Logic xử lý winner đã được chuyển sang hàm handleWinnerSelected
     }, 6500)
   }
 
@@ -104,16 +92,10 @@ function LuckyDraw() {
       </motion.div>
 
       <div className='flex flex-col items-center border-8 border-yellow-400 p-[10px] w-[800px]'>
-        <div className='pt-10 pb-6 w-[700px] '>
+        <div className='pt-10 pb-6 w-[700px]'>
           <h2 className='text-xl text-yellow-200 mb-4'>GIẢI THƯỞNG HIỆN TẠI</h2>
           <select
-            className='
-              bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600
-              text-red-900 font-bold text-2xl py-4 px-6 rounded-lg shadow-inner
-              border-2 border-yellow-300 cursor-pointer w-full text-center
-              hover:from-yellow-500 hover:to-yellow-400 transition-all
-              appearance-none
-            '
+            className='bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 text-red-900 font-bold text-2xl py-4 px-6 rounded-lg shadow-inner border-2 border-yellow-300 cursor-pointer w-full text-center hover:from-yellow-500 hover:to-yellow-400 transition-all appearance-none'
             value={selectedIndex}
             onChange={(e) => setSelectedIndex(Number(e.target.value))}
           >
@@ -130,10 +112,11 @@ function LuckyDraw() {
         </div>
 
         <PluseDots
-          winner={winner}
           isDrawing={isDrawing}
           participants={attendees}
           selectedPrize={selectedGift?.name ?? 'Đang tải...'}
+          onDialogOpen={handleDialogOpen}
+          onWinnerSelected={handleWinnerSelected}
         />
 
         <div className='mt-6 text-center'>
@@ -141,6 +124,13 @@ function LuckyDraw() {
             <span className='font-bold'>{attendees.length}</span> Người tham gia •
             <span className='font-bold ml-1'>{drawCount}</span> lượt quay
           </p>
+          
+          {/* Hiển thị thông tin người chiến thắng hiện tại (tùy chọn) */}
+          {winner && (
+            <div className='mt-3 text-yellow-100 bg-red-800/50 p-2 rounded-lg'>
+              <p>Người chiến thắng hiện tại: <span className='font-bold'>{winner.display_name}</span></p>
+            </div>
+          )}
         </div>
 
         <ButtonDraw onClick={drawWiner} />
