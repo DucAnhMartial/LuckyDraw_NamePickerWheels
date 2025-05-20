@@ -1,0 +1,109 @@
+import { useRef, useState, useEffect } from 'react';
+
+const ITEM_HEIGHT = 60;
+const VISIBLE_ITEMS = 3;
+
+export default function SlotMachine({ participants, onWinner, isDrawing, defaultColor, winnerColor }) {
+  const containerRef = useRef(null);
+  const [displayList, setDisplayList] = useState([]);
+  const [spinning, setSpinning] = useState(false);
+  const [winnerIndex, setWinnerIndex] = useState(null);
+  const [winnerDisplayIndex, setWinnerDisplayIndex] = useState(null);
+  const animationRef = useRef(null);
+
+  useEffect(() => {
+    let extended = [];
+    for (let i = 0; i < 100; i++) {
+      extended = extended.concat(participants);
+    }
+    setDisplayList(extended);
+  }, [participants]);
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  const spin = () => {
+    if (spinning) return;
+    setSpinning(true);
+    setWinnerIndex(null);
+    setWinnerDisplayIndex(null);
+
+    const len = participants.length;
+    const winner = Math.floor(Math.random() * len);
+
+    const totalSteps = 400;
+    let currentStep = 0;
+    let scrollPos = 0;
+
+    const winnerIdxOnList = len * 80 + winner;
+    const stopPos = winnerIdxOnList * ITEM_HEIGHT - ITEM_HEIGHT;
+
+    function animate() {
+      if (!containerRef.current) return;
+
+      currentStep++;
+
+      const t = currentStep / totalSteps;
+      const speed = easeOutCubic(1 - t) * 15;
+
+      scrollPos += speed;
+
+      if (scrollPos > containerRef.current.scrollHeight - containerRef.current.clientHeight) {
+        scrollPos -= containerRef.current.scrollHeight - containerRef.current.clientHeight;
+      }
+
+      if (currentStep >= totalSteps || scrollPos >= stopPos) {
+        containerRef.current.scrollTop = stopPos;
+        setSpinning(false);
+        setWinnerIndex(winner);
+        setWinnerDisplayIndex(winnerIdxOnList);
+        cancelAnimationFrame(animationRef.current);
+        const winnerObj = participants[winner];
+        if (onWinner) {
+          onWinner(winnerObj);
+        }
+        return;
+      }
+
+      containerRef.current.scrollTop = scrollPos;
+      animationRef.current = requestAnimationFrame(animate);
+    }
+
+    animationRef.current = requestAnimationFrame(animate);
+  };
+
+  useEffect(() => {
+    if (isDrawing) {
+      spin();
+    }
+  }, [isDrawing]);
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div
+        ref={containerRef}
+        className="overflow-hidden w-full"
+        style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS }}
+      >
+        <div>
+          {displayList.map((p, i) => {
+            const isWinner = i === winnerDisplayIndex;
+            return (
+              <div
+                key={i}
+                className={`flex items-center justify-center border-b h-[60px] text-lg font-semibold transition-all duration-300 ${
+                  isWinner
+                    ? `bg-yellow-500 text-xl font-bold scale-105 border-2 border-${winnerColor}-500`
+                    : `bg-${defaultColor}`
+                }`}
+              >
+                {p.display_name}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

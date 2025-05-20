@@ -26,6 +26,7 @@ export async function getListAttendees() {
   })
 
   const data = await response.json()
+
   return data
 }
 
