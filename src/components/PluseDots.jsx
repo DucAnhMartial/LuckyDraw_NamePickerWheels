@@ -5,22 +5,39 @@ import { motion, AnimatePresence } from 'framer-motion'
 import SlotMachine from './SlotMachine'
 import * as Dialog from '@radix-ui/react-dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { postDataHistoryLucky } from '@/api/getData'
 
-export default function PulseDots({ isDrawing, participants, selectedPrize, onDialogOpen, onWinnerSelected }) {
+
+export default function PulseDots({ isDrawing, participants, selectedPrize, onDialogOpen, onWinnerSelected, selectedPrizeId }) {
   const [open, setOpen] = useState(false)
   const [localWinner, setLocalWinner] = useState(null)
 
   useEffect(() => {
-    if (localWinner) {
-      setOpen((prev) => (prev ? prev : true)) // Chỉ set nếu khác giá trị hiện tại
-      onDialogOpen?.(true)
-      onWinnerSelected?.(localWinner)
-    } else {
-      setOpen((prev) => (prev ? false : prev))
+    if (!localWinner) {
+      setOpen(false)
       onDialogOpen?.(false)
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // Cập nhật state hiển thị dialog và winner
+    setOpen(true)
+    onDialogOpen?.(true)
+    onWinnerSelected?.(localWinner)
+
   }, [localWinner])
+
+  useEffect(() => {
+    if (!localWinner || !selectedPrizeId) return
+    console.log(localWinner.ticketId)
+    // Gọi API khi có đủ thông tin
+    postDataHistoryLucky(localWinner.ticketId, `${selectedPrizeId}`, `Trúng giải: ${selectedPrize}`)
+      .then(() => {
+        console.log('Lưu lịch sử thành công')
+      })
+      .catch((error) => {
+        console.error('Lỗi khi lưu lịch sử:', error)
+      })
+  }, [localWinner, selectedPrizeId, selectedPrize])
 
   const handleWinner = (winner) => {
     setLocalWinner(winner)
@@ -36,7 +53,7 @@ export default function PulseDots({ isDrawing, participants, selectedPrize, onDi
     <div className='mt-8 relative w-full'>
       <div
         className={cn(
-          'h-64 flex items-center justify-center rounded-xl border-4 border-dashed border-yellow-400 bg-gradient-to-b from-red-800/50 to-red-900/50 transition-all overflow-hidden',
+          'h-80 flex items-center justify-center rounded-xl border-4 border-dashed border-yellow-400 bg-gradient-to-b from-red-800/50 to-red-900/50 transition-all overflow-hidden',
           (localWinner || isDrawing) && 'bg-red-700/50 border-solid'
         )}
       >
@@ -119,13 +136,13 @@ export default function PulseDots({ isDrawing, participants, selectedPrize, onDi
                                 y: 100 + i * 30,
                                 x: i % 2 === 0 ? 20 : -20,
                                 opacity: [0, 1, 0],
-                                rotate: i % 2 === 0 ? 180 : -180,
+                                rotate: i % 2 === 0 ? 180 : -180
                               }}
                               transition={{
                                 duration: 2 + i * 0.2,
                                 repeat: Infinity,
                                 repeatType: 'loop',
-                                delay: i * 0.2,
+                                delay: i * 0.2
                               }}
                               className='absolute'
                               style={{ left: `${10 + i * 10}%` }}
@@ -169,7 +186,7 @@ export default function PulseDots({ isDrawing, participants, selectedPrize, onDi
                           </h3>
                           <div className='inline-flex items-center justify-center gap-2 bg-red-100 text-red-700 px-5 py-2.5 rounded-full text-xl font-medium mt-3'>
                             <span>Mã số:</span>
-                            <span className='font-bold'>{localWinner?.phone}</span>
+                            <span className='font-bold'>{localWinner?.lucky_id}</span>
                           </div>
                         </motion.div>
 

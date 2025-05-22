@@ -1,6 +1,7 @@
 import InputGift from './pages/InputGift'
 import InputPeople from './pages/InputPeople'
 import LuckyDraw from './pages/LuckyDraw'
+import { TestData } from './pages/test'
 
 function App() {
   return (

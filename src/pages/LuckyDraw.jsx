@@ -8,8 +8,7 @@ import BorderBg from '@/components/BorderBg'
 import PopMenu from '@/components/PopMenu'
 import Confetti from '@/components/confetti'
 
-import listDataGifts from '@/data/gifts'
-import listAttendeesGifts from '@/data/people'
+import { getDataListPrizes, getDataListAttendees } from '@/api/getData'
 
 function LuckyDraw() {
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -18,10 +17,31 @@ function LuckyDraw() {
   const [selectedGift, setSelectedGift] = useState(null)
   const [drawCount, setDrawCount] = useState(0)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [attendees, setAttendees] = useState(listAttendeesGifts)
-  const [gift, setGift] = useState(listDataGifts)
+  const [attendees, setAttendees] = useState([])
+  const [gift, setGift] = useState([])
   const [optionRemovePlayer, setOptionRemovePlayer] = useState(false)
   const [optionRemoveGift, setOptionRemoveGift] = useState(false)
+
+  //test
+
+  useEffect(() => {
+    async function fetchData () {
+      try {
+        let listAttendees = await getDataListAttendees()
+        let listPrizes = await getDataListPrizes()
+        //let listAttendees = await getListAttendees()
+        console.log(listPrizes)
+        console.log(listAttendees)
+        setGift(listPrizes)
+        setAttendees(listAttendees)
+      }
+      catch (e) {
+        console.log('Error when calling API', e)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   // Hàm xử lý khi dialog mở/đóng
   const handleDialogOpen = (isOpen) => {
@@ -98,16 +118,21 @@ function LuckyDraw() {
             className='bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 text-red-900 font-bold text-2xl py-4 px-6 rounded-lg shadow-inner border-2 border-yellow-300 cursor-pointer w-full text-center hover:from-yellow-500 hover:to-yellow-400 transition-all appearance-none'
             value={selectedIndex}
             onChange={(e) => setSelectedIndex(Number(e.target.value))}
+            disabled={gift.length === 0}
           >
-            {gift.map((item, index) => (
-              <option
-                key={index}
-                value={index}
-                className='hover:bg-red-600 font-bold text-2xl text-red-900 text-center bg-yellow-500'
-              >
-                {item.name}
-              </option>
-            ))}
+            {gift.length === 0 ? (
+              <option className='text-center'>Đang tải...</option>
+            ) : (
+              gift.map((item, index) => (
+                <option
+                  key={index}
+                  value={index}
+                  className='hover:bg-red-600 font-bold text-2xl text-red-900 text-center bg-yellow-500'
+                >
+                  {item.name}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
@@ -115,6 +140,7 @@ function LuckyDraw() {
           isDrawing={isDrawing}
           participants={attendees}
           selectedPrize={selectedGift?.name ?? 'Đang tải...'}
+          selectedPrizeId={selectedGift?.id ?? null}
           onDialogOpen={handleDialogOpen}
           onWinnerSelected={handleWinnerSelected}
         />
@@ -124,7 +150,6 @@ function LuckyDraw() {
             <span className='font-bold'>{attendees.length}</span> Người tham gia •
             <span className='font-bold ml-1'>{drawCount}</span> lượt quay
           </p>
-          
           {/* Hiển thị thông tin người chiến thắng hiện tại (tùy chọn) */}
           {winner && (
             <div className='mt-3 text-yellow-100 bg-red-800/50 p-2 rounded-lg'>
