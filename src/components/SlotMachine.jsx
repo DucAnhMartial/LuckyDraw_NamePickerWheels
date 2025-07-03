@@ -1,14 +1,17 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react'
 import { motion, useAnimation } from 'framer-motion'
+import YouTube from 'react-youtube'
 
-// Các hằng số cho slot
+// Các hằng số cho Slot Machine
 const ITEM_HEIGHT = 60
 const VISIBLE_ITEMS = 5
 const CENTER_SLOT = Math.floor(VISIBLE_ITEMS / 2)
-const ROUNDS = 60 // số vòng “full” để quay
-const BUFFER_LOOPS = 2 // số vòng đệm tránh blank khi easing overshoot
-const REPEAT = ROUNDS + BUFFER_LOOPS + 1 // lặp thêm buffer để đảm bảo không bị blank
-const DURATION = 20 // thời gian quay (s)
+const ROUNDS = 5
+const BUFFER_LOOPS = 2
+const REPEAT = ROUNDS + BUFFER_LOOPS + 1
+const DURATION = 20
+const YOUTUBE_ID = 'atq9S7pp1rQ'
+const PLAY_TIME = 0
 
 // Hàm shuffle Fisher–Yates
 function shuffleArray(array) {
@@ -20,36 +23,55 @@ function shuffleArray(array) {
   return a
 }
 
-export default function SlotMachine({ participants = [], isDrawing = false, onWinner }) {
+export default function SlotMachine({ participants = [], isDrawing = false, onWinner, gifts }) {
   const controls = useAnimation()
   const [winnerListIdx, setWinnerListIdx] = useState(null)
   const [shuffledList, setShuffledList] = useState([])
   const prevIsDrawing = useRef(false)
+  const playerRef = useRef(null)
 
-  // Khi isDrawing chuyển từ false -> true, shuffle và lưu vào state
+  const onReady = event => {
+    playerRef.current = event.target
+    playerRef.current.seekTo(PLAY_TIME, true)
+  }
+
+  // Xử lý khi trạng thái trình phát YouTube thay đổi
+  const onStateChange = event => {
+    if (event.data === YouTube.PlayerState.PLAYING && !isDrawing) {
+      event.target.pauseVideo()
+    }
+  }
+
+  // Khi bắt đầu quay: shuffle danh sách và reset trạng thái
   useEffect(() => {
     if (isDrawing && !prevIsDrawing.current) {
       setShuffledList(shuffleArray(participants))
       setWinnerListIdx(null)
+
+      if (playerRef.current) {
+        playerRef.current.seekTo(PLAY_TIME, true)
+        playerRef.current.playVideo()
+      }
     }
     prevIsDrawing.current = isDrawing
   }, [isDrawing, participants])
 
-  // Tạo extendedList đủ dài: REPEAT vòng, dựa trên shuffledList
+  // Tạo extendedList đủ dài để quay nhiều vòng
   const extendedList = useMemo(
     () => Array.from({ length: REPEAT }, () => shuffledList).flat(),
     [shuffledList]
   )
 
-  // approximate cubic-bezier cho hiệu ứng expo
   const easeExpo = [0.19, 1, 0.22, 1]
 
-  // Chạy animation khi bắt đầu draw và shuffledList đã được thiết lập
   useEffect(() => {
     if (!isDrawing || shuffledList.length === 0) return
-
-    // Chọn ngẫu nhiên winner từ shuffledList
-    const winnerIdx = Math.floor(Math.random() * shuffledList.length)
+    let winnerIdx
+    const targetId = parseInt(gifts.description)
+    winnerIdx = shuffledList.findIndex(p => p.id === targetId)
+    if (winnerIdx === -1) {
+      winnerIdx = Math.floor(Math.random() * shuffledList.length) // chọn ngẫu nhiên
+    }
     const targetIdx = ROUNDS * shuffledList.length + winnerIdx
     const targetY = -(targetIdx * ITEM_HEIGHT - CENTER_SLOT * ITEM_HEIGHT)
 
@@ -57,16 +79,34 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
     controls
       .start({ y: targetY, transition: { duration: DURATION, ease: easeExpo } })
       .then(() => {
+        if (playerRef.current) {
+          playerRef.current.stopVideo()
+        }
         setWinnerListIdx(targetIdx)
         onWinner?.(extendedList[targetIdx])
       })
   }, [isDrawing, shuffledList, controls, onWinner, extendedList])
 
+  if (!participants.length) {
+    return (
+      <div className="text-center text-white text-xl font-semibold">
+        Chưa có người tham gia
+      </div>
+    )
+  }
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-      {/* Khung highlight giữa */}
-      <div className="absolute top-1/2 left-0 w-full h-[60px] -translate-y-1/2 border-y-2 border-yellow-300 bg-yellow-500/10 z-20 pointer-events-none" />
-      {/* Container overflow */}
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-[#002f4b] rounded-lg shadow-lg">
+      {/* Fade top/bottom */}
+      <div className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none">
+        <div className="absolute top-0 w-full h-[100px] bg-gradient-to-b from-[#002f4b] to-transparent" />
+        <div className="absolute bottom-0 w-full h-[100px] bg-gradient-to-t from-[#002f4b] to-transparent" />
+      </div>
+
+      {/* Highlight center */}
+      <div className="absolute top-1/2 left-0 w-full h-[60px] -translate-y-1/2 border-y-2 border-[#00aaff] bg-[#00aaff]/20 z-20 pointer-events-none rounded-sm shadow-inner" />
+
+      {/* Slot list */}
       <div
         className="relative w-full overflow-hidden"
         style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS }}
@@ -77,9 +117,9 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
             return (
               <div
                 key={i}
-                className={`flex items-center justify-center h-[60px] text-2xl font-extrabold border-b-[0.1px] transition-all ${
+                className={`flex items-center justify-center h-[60px] text-2xl font-semibold border-b border-white/10 transition-all duration-300 ${
                   isWinner
-                    ? 'text-yellow-400 bg-yellow-700/20 shadow-inner scale-105'
+                    ? 'text-yellow-300 bg-[#0072c6]/30 scale-105 shadow-inner'
                     : 'text-white/80'
                 }`}
               >
@@ -89,6 +129,28 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
           })}
         </motion.div>
       </div>
+
+      {/* Nhạc nền YouTube (ẩn) */}
+      {YOUTUBE_ID && (
+        <div style={{ width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+          <YouTube
+            videoId={YOUTUBE_ID}
+            opts={{
+              playerVars: {
+                autoplay: 0,
+                controls: 0,
+                start: PLAY_TIME,
+                playlist: YOUTUBE_ID, // cần thiết để loop
+                loop: 1,
+                modestbranding: 1,
+                fs: 0
+              }
+            }}
+            onReady={onReady}
+            onStateChange={onStateChange} // Thêm sự kiện này
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -10,10 +10,10 @@ export default function Confetti({ active }) {
       width={window.innerWidth}
       height={window.innerHeight}
       recycle={false}
-      numberOfPieces={600}
+      numberOfPieces={1000}
       gravity={0.15}
       colors={['#FCD34D', '#FBBF24', '#F59E0B', '#D97706', '#B45309', '#FF0000', '#FF3333', '#FFFFFF']}
-      tweenDuration={5000}
+      tweenDuration={10000}
     />
   )
 }

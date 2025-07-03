@@ -1,8 +1,9 @@
-export default function ButtonDraw ({ onClick }) {
+export default function ButtonDraw ({ onClick, disabled = false }) {
   return (
     <div className="flex justify-center pb-8 pt-10">
       <button
         id="drawButton"
+        disabled={disabled}
         className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-red-900 text-xl px-10 py-8 h-auto rounded-full font-bold shadow-[0_0_20px_rgba(255,204,0,0.5)] transition-all duration-200 active:scale-95 hover:scale-105 disabled:opacity-70 flex items-center"
         onClick= {onClick}
       >

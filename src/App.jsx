@@ -1,14 +1,16 @@
-import InputGift from './pages/InputGift'
-import InputPeople from './pages/InputPeople'
 import LuckyDraw from './pages/LuckyDraw'
-import { TestData } from './pages/test'
 
 function App() {
   return (
-    <main className='flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-red-600 to-red-800 p-4'>
+    <main
+      className="flex min-h-screen flex-col items-center justify-center bg-cover bg-center p-4"
+      style={{
+        backgroundImage: 'url(\'/luckydraw.jpg\')',
+        backgroundPosition: 'center 1px'
+      }}
+    >
       <LuckyDraw />
     </main>
   )
 }
 export default App
-
