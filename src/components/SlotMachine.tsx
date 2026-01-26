@@ -1,6 +1,7 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { motion, useAnimation } from 'framer-motion'
 import YouTube from 'react-youtube'
+import type { Attendee } from '@/types/attendee'
 
 // Các hằng số cho Slot Machine
 const ITEM_HEIGHT = 60
@@ -14,29 +15,46 @@ const YOUTUBE_ID = 'atq9S7pp1rQ'
 const PLAY_TIME = 0
 
 // Hàm shuffle Fisher–Yates
-function shuffleArray(array) {
+function shuffleArray<T>(array: T[]): T[] {
   const a = [...array]
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
+    const temp = a[i]!
+    a[i] = a[j]!
+    a[j] = temp
   }
   return a
 }
 
-export default function SlotMachine({ participants = [], isDrawing = false, onWinner, gifts }) {
-  const controls = useAnimation()
-  const [winnerListIdx, setWinnerListIdx] = useState(null)
-  const [shuffledList, setShuffledList] = useState([])
-  const prevIsDrawing = useRef(false)
-  const playerRef = useRef(null)
+interface SlotMachineProps {
+  participants?: Attendee[];
+  isDrawing?: boolean;
+  onWinner?: (winner: Attendee) => void;
+  gifts?: {
+    description: string;
+    [key: string]: any;
+  };
+}
 
-  const onReady = event => {
+export default function SlotMachine({
+  participants = [],
+  isDrawing = false,
+  onWinner,
+  gifts
+}: SlotMachineProps) {
+  const controls = useAnimation()
+  const [winnerListIdx, setWinnerListIdx] = useState<number | null>(null)
+  const [shuffledList, setShuffledList] = useState<Attendee[]>([])
+  const prevIsDrawing = useRef(false)
+  const playerRef = useRef<any>(null)
+
+  const onReady = (event: any) => {
     playerRef.current = event.target
     playerRef.current.seekTo(PLAY_TIME, true)
   }
 
   // Xử lý khi trạng thái trình phát YouTube thay đổi
-  const onStateChange = event => {
+  const onStateChange = (event: any) => {
     if (event.data === YouTube.PlayerState.PLAYING && !isDrawing) {
       event.target.pauseVideo()
     }
@@ -66,8 +84,8 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
 
   useEffect(() => {
     if (!isDrawing || shuffledList.length === 0) return
-    let winnerIdx
-    const targetId = parseInt(gifts.description)
+    let winnerIdx: number
+    const targetId = parseInt(gifts?.description || '0')
     winnerIdx = shuffledList.findIndex(p => p.id === targetId)
     if (winnerIdx === -1) {
       winnerIdx = Math.floor(Math.random() * shuffledList.length) // chọn ngẫu nhiên
@@ -83,9 +101,12 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
           playerRef.current.stopVideo()
         }
         setWinnerListIdx(targetIdx)
-        onWinner?.(extendedList[targetIdx])
+        const winner = extendedList[targetIdx]
+        if (winner) {
+          onWinner?.(winner)
+        }
       })
-  }, [isDrawing, shuffledList, controls, onWinner, extendedList])
+  }, [isDrawing, shuffledList, controls, onWinner, extendedList, gifts])
 
   if (!participants.length) {
     return (
@@ -123,7 +144,7 @@ export default function SlotMachine({ participants = [], isDrawing = false, onWi
                     : 'text-white/80'
                 }`}
               >
-                {p.display_name ?? p.name ?? p}
+                {p.display_name ?? p.attendee_email ?? 'Unknown'}
               </div>
             )
           })}

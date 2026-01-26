@@ -7,22 +7,31 @@ import ButtonDraw from '@/components/ButtonDraw'
 import BorderBg from '@/components/BorderBg'
 import Confetti from '@/components/confetti'
 
-import { getDataListPrizes, getDataListAttendees } from '@/api/getData'
+import { getDataListPrizes, getDataListAttendees, getDataListSessions, getDataLuckyDrawHistory } from '@/api/getData'
+import type { Attendee } from '@/types/attendee'
+import type { Session } from '@/types/session'
+import type { LuckyDrawLog } from '@/types/history'
 
 // Biến cache ngoài component
-let attendeesCache = null
-let prizesCache = null
+let attendeesCache: Attendee[] | null = null
+let prizesCache: any[] | null = null
+let sessionsCache: Session[] | null = null
 
 function LuckyDraw() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isDrawing, setDrawing] = useState(false)
-  const [winner, setWinner] = useState(null)
-  const [selectedGift, setSelectedGift] = useState(null)
+  const [winner, setWinner] = useState<Attendee | null>(null)
+  const [selectedGift, setSelectedGift] = useState<any>(null)
   const [drawCount, setDrawCount] = useState(0)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [attendees, setAttendees] = useState([])
-  const [gift, setGift] = useState([])
+  const [attendees, setAttendees] = useState<Attendee[]>([])
+  const [gift, setGift] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
+  // const [showHistoryModal, setShowHistoryModal] = useState(false)
+  // const [history, setHistory] = useState<LuckyDrawLog[]>([])
+  // const [historyLoading, setHistoryLoading] = useState(false)
 
   // Prefetch khi hover vào nút quay hoặc khi trang load
   const prefetchData = async () => {
@@ -32,18 +41,21 @@ function LuckyDraw() {
     if (!prizesCache) {
       prizesCache = await getDataListPrizes()
     }
+    if (!sessionsCache) {
+      sessionsCache = await getDataListSessions()
+    }
   }
 
   // Lọc unique theo tên prize
   const uniqueGifts = useMemo(() => {
-    const seen = new Set()
+    const seen = new Set<string>()
     return gift.reduce((arr, item) => {
       if (!seen.has(item.name)) {
         seen.add(item.name)
         arr.push(item)
       }
       return arr
-    }, [])
+    }, [] as any[])
   }, [gift])
 
   useEffect(() => {
@@ -51,12 +63,22 @@ function LuckyDraw() {
     async function fetchData() {
       setLoading(true)
       try {
+        // Fetch sessions first
+        if (!sessionsCache) {
+          sessionsCache = await getDataListSessions()
+        }
         // Nếu đã có cache thì dùng luôn, không thì fetch và cache lại
         if (!attendeesCache) attendeesCache = await getDataListAttendees()
         if (!prizesCache) prizesCache = await getDataListPrizes()
+        console.log('Fetched data: ', {
+          attendees: attendeesCache?.length,
+          prizes: prizesCache?.length,
+          sessions: sessionsCache?.length
+        })
         if (!cancelled) {
-          setAttendees(attendeesCache)
-          setGift(prizesCache)
+          setAttendees(attendeesCache || [])
+          setGift(prizesCache || [])
+          setSessions(sessionsCache || [])
         }
       } catch (e) {
         //console.error('Error when calling API', e)
@@ -69,18 +91,35 @@ function LuckyDraw() {
     return () => { cancelled = true }
   }, [])
 
+  // Refetch attendees when selected session changes    
+  useEffect(() => {
+    if (selectedSession) {
+      setLoading(true)
+      console.log('Selected session:', selectedSession)
+      console.log('Attendees cache:', attendeesCache)
+      const filteredAttendees = attendeesCache?.filter(a => {
+        console.log(`Checking attendee ${a.id}: session=${a.session}, selectedSessionId=${selectedSession.id}, match=${a.session === selectedSession.id}`)
+        return a.session === selectedSession.id
+      }) || []
+      console.log('Filtered attendees count:', filteredAttendees.length)
+      setAttendees(filteredAttendees)
+      setDrawCount(0) // Reset draw count when switching sessions
+      setLoading(false)
+    }
+  }, [selectedSession])
+
   // Nhận kết quả từ SlotMachine
-  const handleWinnerSelected = (selectedWinner) => {
+  const handleWinnerSelected = (selectedWinner: Attendee) => {
     setWinner(selectedWinner)
     // Xóa người chơi vừa trúng
     if (selectedWinner?.id) {
       setAttendees(prev => prev.filter(p => p.id !== selectedWinner.id))
-      attendeesCache = attendeesCache?.filter(p => p.id !== selectedWinner.id)
+      attendeesCache = attendeesCache?.filter(p => p.id !== selectedWinner.id) || null
     }
     // Xóa giải thưởng đã trao
     if (selectedGift?.id) {
       setGift(prev => prev.filter(item => item.id !== selectedGift.id))
-      prizesCache = prizesCache?.filter(item => item.id !== selectedGift.id)
+      prizesCache = prizesCache?.filter(item => item.id !== selectedGift.id) || null
       setSelectedIndex(0)
     }
   }
@@ -102,7 +141,7 @@ function LuckyDraw() {
   }
 
   // Xử lý mở/đóng dialog
-  const handleDialogOpen = (isOpen) => {
+  const handleDialogOpen = (isOpen: boolean) => {
     setShowConfetti(isOpen)
     if (!isOpen) {
       setWinner(null)
@@ -121,6 +160,42 @@ function LuckyDraw() {
     <div className='text-center flex-col relative'>
       {loadingOverlay}
       {showConfetti && <Confetti active={showConfetti} />}
+      
+      {/* Session Selector at Top Right */}
+      <div className='fixed top-3 right-6 z-1 w-64'>
+        <select
+          value={selectedSession?.id.toString() ?? ''}
+          onChange={(e) => {
+            if (e.target.value === '') {
+              setSelectedSession(null)
+              // Show all attendees when no session is selected
+              setAttendees(attendeesCache || [])
+            } else {
+              const session = sessions.find(s => s.id === parseInt(e.target.value))
+              if (session) {
+                setSelectedSession(session)
+              }
+            }
+          }}
+          className='bg-gradient-to-r from-[#00599b] via-blue-400 to-[#00599b] text-white font-bold py-2 px-4 rounded-lg shadow-inner border border-white/30 cursor-pointer w-full text-center hover:from-blue-600 hover:to-blue-400 transition-all appearance-none'
+        >
+          <option value='' className='bg-blue-500'>Select a Session</option>
+          {sessions.length === 0 ? (
+            <option className='text-center bg-blue-500'>Đang tải...</option>
+          ) : (
+            sessions.map((session) => (
+              <option
+                key={session.id}
+                value={session.id.toString()}
+                className='bg-blue-500 font-bold text-white text-center'
+              >
+                {session.name}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
       <motion.div
         className='relative mb-8 text-center'
         initial={{ scale: 0.8, opacity: 0 }}
@@ -146,7 +221,7 @@ function LuckyDraw() {
             {uniqueGifts.length === 0 ? (
               <option className='text-center'>Đang tải...</option>
             ) : (
-              uniqueGifts.map((item, idx) => (
+              uniqueGifts.map((item: any, idx: number) => (
                 <option
                   key={item.id}
                   value={idx}
@@ -162,7 +237,6 @@ function LuckyDraw() {
         <PluseDots
           isDrawing={isDrawing}
           participants={attendees}
-          selectedPrize={selectedGift?.name ?? 'Đang tải...'}
           selectedPrizeId={selectedGift?.id ?? null}
           prize={selectedGift}
           onDialogOpen={handleDialogOpen}
