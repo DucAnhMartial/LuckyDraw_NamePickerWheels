@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Sheet,
   SheetTrigger,
@@ -10,9 +9,19 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
-export default function SettingsSheet( { optionRemovePlayer, setOptionRemovePlayer, optionRemoveGift, setOptionRemoveGift }) {
+interface PopMenuProps {
+  optionRemovePlayer: boolean;
+  setOptionRemovePlayer: (value: boolean) => void;
+  optionRemoveGift: boolean;
+  setOptionRemoveGift: (value: boolean) => void;
+}
 
-
+export default function PopMenu({
+  optionRemovePlayer,
+  setOptionRemovePlayer,
+  optionRemoveGift,
+  setOptionRemoveGift
+}: PopMenuProps) {
   return (
     <Sheet>
       {/* Nút mở settings */}

@@ -1,11 +1,18 @@
-export default function ButtonDraw ({ onClick, disabled = false }) {
+interface ButtonDrawProps {
+  onClick: () => void;
+  disabled?: boolean;
+  onMouseEnter?: () => void;
+}
+
+export default function ButtonDraw({ onClick, disabled = false, onMouseEnter }: ButtonDrawProps) {
   return (
     <div className="flex justify-center pb-8 pt-10">
       <button
         id="drawButton"
         disabled={disabled}
         className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-red-900 text-xl px-10 py-8 h-auto rounded-full font-bold shadow-[0_0_20px_rgba(255,204,0,0.5)] transition-all duration-200 active:scale-95 hover:scale-105 disabled:opacity-70 flex items-center"
-        onClick= {onClick}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
       >
         <svg id="spinner" className="hidden animate-spin mr-2 h-5 w-5 text-red-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

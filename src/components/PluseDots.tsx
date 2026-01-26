@@ -6,10 +6,26 @@ import SlotMachine from './SlotMachine'
 import * as Dialog from '@radix-ui/react-dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { postDataHistoryLucky } from '@/api/getData'
+import type { Attendee } from '@/types/attendee'
 
 // 1. Link raw MP3 từ Cloudinary
 const AUDIO_RAW_URL = 'https://res.cloudinary.com/dyub0dnkb/video/upload/v1748331626/audio_pyrrli.mp4'
 
+interface PlusedotsProps {
+  isDrawing: boolean;
+  participants: Attendee[];
+  onDialogOpen?: (isOpen: boolean) => void;
+  onWinnerSelected?: (winner: Attendee) => void;
+  selectedPrizeId?: number | null;
+  prize?: {
+    id: number;
+    name: string;
+    description: string;
+    level?: number;
+    prize?: string;
+    [key: string]: any;
+  };
+}
 
 export default function PulseDots({
   isDrawing,
@@ -18,10 +34,10 @@ export default function PulseDots({
   onWinnerSelected,
   selectedPrizeId,
   prize
-}) {
+}: PlusedotsProps) {
   const [open, setOpen] = useState(false)
-  const [localWinner, setLocalWinner] = useState(null)
-  const audioRef = useRef(null)
+  const [localWinner, setLocalWinner] = useState<Attendee | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   // Khi localWinner thay đổi
   useEffect(() => {
@@ -39,15 +55,17 @@ export default function PulseDots({
       audioRef.current.currentTime = 0
       audioRef.current.play().catch(() => {})
     }
-  }, [localWinner])
+  }, [localWinner, onDialogOpen, onWinnerSelected])
 
   // Gửi lịch sử quay thưởng
   useEffect(() => {
-    if (!localWinner || !selectedPrizeId) return
-    postDataHistoryLucky(localWinner, prize).catch(console.error)
-  }, [localWinner ,prize])
+    if (!localWinner || !selectedPrizeId || !prize) return
+    if (prize.level !== undefined) {
+      postDataHistoryLucky(localWinner, prize as any).catch(console.error)
+    }
+  }, [localWinner, selectedPrizeId, prize])
 
-  const handleWinner = (winner) => setLocalWinner(winner)
+  const handleWinner = (winner: Attendee) => setLocalWinner(winner)
 
   const handleDialogClose = () => {
     setOpen(false)
@@ -79,7 +97,7 @@ export default function PulseDots({
         </div>
         {/* Pulse dots */}
         {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map((pos, i) => {
-          const classes = {
+          const classes: Record<string, string> = {
             'top-left': 'top-2 left-2',
             'top-right': 'top-2 right-2',
             'bottom-left': 'bottom-2 left-2',
@@ -178,7 +196,7 @@ export default function PulseDots({
                         <motion.div initial={{ y:20, opacity:0 }} animate={{ y:0, opacity:1 }} transition={{ delay:0.7, duration:0.5 }}
                           className='mt-8 flex items-center justify-center gap-2 text-2xl text-gray-700'>
                           <Award className='h-7 w-7 text-red-500' />
-                          <span>Đã trúng <span className='font-bold text-red-600'>{prize.name} - {prize.prize}</span></span>
+                          <span>Đã trúng <span className='font-bold text-red-600'>{prize?.name} - {prize?.prize}</span></span>
                         </motion.div>
                         <motion.div initial={{ scale:0.8, opacity:0 }} animate={{ scale:1, opacity:1 }} transition={{ delay:0.9, duration:0.5 }}>
                           <button onClick={handleDialogClose}

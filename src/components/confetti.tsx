@@ -1,8 +1,10 @@
 import ReactConfetti from 'react-confetti'
 
-export default function Confetti({ active }) {
+interface ConfettiProps {
+  active: boolean;
+}
 
-
+export default function Confetti({ active }: ConfettiProps) {
   if (!active) return null
 
   return (
