@@ -8,9 +8,6 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { postDataHistoryLucky } from '@/api/getData'
 import type { Attendee } from '@/types/attendee'
 
-// 1. Link raw MP3 từ Cloudinary
-const AUDIO_RAW_URL = 'https://res.cloudinary.com/dyub0dnkb/video/upload/v1748331626/audio_pyrrli.mp4'
-
 interface PlusedotsProps {
   isDrawing: boolean;
   participants: Attendee[];
@@ -25,6 +22,9 @@ interface PlusedotsProps {
     prize?: string;
     [key: string]: any;
   };
+  spinningAudioUrl?: string;
+  winnerAudioUrl?: string;
+  spinDuration?: number;
 }
 
 export default function PulseDots({
@@ -33,29 +33,44 @@ export default function PulseDots({
   onDialogOpen,
   onWinnerSelected,
   selectedPrizeId,
-  prize
+  prize,
+  spinningAudioUrl = '',
+  winnerAudioUrl = '',
+  spinDuration = 6
 }: PlusedotsProps) {
   const [open, setOpen] = useState(false)
   const [localWinner, setLocalWinner] = useState<Attendee | null>(null)
+  const [shouldPlayWinnerAudio, setShouldPlayWinnerAudio] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Khi localWinner thay đổi
+  // Khi localWinner thay đổi - chỉ mở dialog, không phát nhạc ngay
   useEffect(() => {
     if (!localWinner) {
       setOpen(false)
-      onDialogOpen?.(false)
+      setShouldPlayWinnerAudio(false)
       return
     }
     setOpen(true)
     onDialogOpen?.(true)
     onWinnerSelected?.(localWinner)
+    // Đánh dấu cần phát nhạc
+    setShouldPlayWinnerAudio(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localWinner]) // Chỉ phụ thuộc vào localWinner để tránh gọi lại khi callback reference thay đổi
 
-    // Phát nhạc nếu dùng <audio>
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0
-      audioRef.current.play().catch(() => {})
+  // Phát nhạc winner khi dialog mở và được đánh dấu
+  useEffect(() => {
+    if (open && shouldPlayWinnerAudio && winnerAudioUrl && audioRef.current) {
+      // Delay một chút để đảm bảo dialog đã render
+      const timer = setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0
+          audioRef.current.play().catch(() => {})
+        }
+      }, 100)
+      return () => clearTimeout(timer)
     }
-  }, [localWinner, onDialogOpen, onWinnerSelected])
+  }, [open, shouldPlayWinnerAudio, winnerAudioUrl])
 
   // Gửi lịch sử quay thưởng
   useEffect(() => {
@@ -68,14 +83,16 @@ export default function PulseDots({
   const handleWinner = (winner: Attendee) => setLocalWinner(winner)
 
   const handleDialogClose = () => {
-    setOpen(false)
-    setLocalWinner(null)
-    onDialogOpen?.(false)
-    // Dừng nhạc
+    // Dừng nhạc trước
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
     }
+    // Reset states
+    setShouldPlayWinnerAudio(false)
+    setOpen(false)
+    setLocalWinner(null)
+    onDialogOpen?.(false)
   }
 
   return (
@@ -93,6 +110,8 @@ export default function PulseDots({
             onWinner={handleWinner}
             isDrawing={isDrawing}
             gifts={prize}
+            spinningAudioUrl={spinningAudioUrl}
+            spinDuration={spinDuration}
           />
         </div>
         {/* Pulse dots */}
@@ -214,10 +233,10 @@ export default function PulseDots({
         </AnimatePresence>
       </Dialog.Root>
 
-      {/* ======= CHỌN 1 trong 2 ======= */}
-
-      {/* 1. Thẻ audio raw MP3 */}
-      <audio ref={audioRef} src={AUDIO_RAW_URL} preload="auto" hidden />
+      {/* Audio phát khi có người chiến thắng */}
+      {winnerAudioUrl && (
+        <audio ref={audioRef} src={winnerAudioUrl} preload="auto" hidden />
+      )}
     </div>
   )
 }

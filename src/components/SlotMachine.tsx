@@ -7,12 +7,33 @@ import type { Attendee } from '@/types/attendee'
 const ITEM_HEIGHT = 60
 const VISIBLE_ITEMS = 5
 const CENTER_SLOT = Math.floor(VISIBLE_ITEMS / 2)
-const ROUNDS = 5
-const BUFFER_LOOPS = 2
-const REPEAT = ROUNDS + BUFFER_LOOPS + 1
-const DURATION = 20
-const YOUTUBE_ID = 'atq9S7pp1rQ'
+const MIN_ITEMS_TO_SPIN = 150 // Số items tối thiểu phải quay qua (tăng để quay nhanh hơn)
 const PLAY_TIME = 0
+
+// Helper function để kiểm tra có phải YouTube ID không
+function isYouTubeId(str: string): boolean {
+  // YouTube ID thường có 11 ký tự và chỉ chứa chữ cái, số, gạch ngang, gạch dưới
+  return /^[a-zA-Z0-9_-]{11}$/.test(str)
+}
+
+// Helper function để extract YouTube ID từ URL
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null
+  if (isYouTubeId(url)) return url
+  
+  // Thử parse URL YouTube
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match && match[1]) return match[1]
+  }
+  
+  return null
+}
 
 // Hàm shuffle Fisher–Yates
 function shuffleArray<T>(array: T[]): T[] {
@@ -34,19 +55,29 @@ interface SlotMachineProps {
     description: string;
     [key: string]: any;
   };
+  spinningAudioUrl?: string; // YouTube ID, YouTube URL, hoặc direct audio URL
+  spinDuration?: number; // Thời gian quay (giây)
 }
 
 export default function SlotMachine({
   participants = [],
   isDrawing = false,
   onWinner,
-  gifts
+  gifts,
+  spinningAudioUrl = '',
+  spinDuration = 6
 }: SlotMachineProps) {
   const controls = useAnimation()
   const [winnerListIdx, setWinnerListIdx] = useState<number | null>(null)
   const [shuffledList, setShuffledList] = useState<Attendee[]>([])
   const prevIsDrawing = useRef(false)
   const playerRef = useRef<any>(null)
+  const directAudioRef = useRef<HTMLAudioElement>(null)
+  const hasCalledWinner = useRef(false) // Track để không gọi onWinner nhiều lần
+
+  // Xác định loại audio source
+  const youtubeId = extractYouTubeId(spinningAudioUrl)
+  const isDirectAudio = spinningAudioUrl && !youtubeId
 
   const onReady = (event: any) => {
     playerRef.current = event.target
@@ -63,42 +94,79 @@ export default function SlotMachine({
   // Khi bắt đầu quay: shuffle danh sách và reset trạng thái
   useEffect(() => {
     if (isDrawing && !prevIsDrawing.current) {
+      // Reset flag khi bắt đầu quay mới
+      hasCalledWinner.current = false
       setShuffledList(shuffleArray(participants))
       setWinnerListIdx(null)
 
-      if (playerRef.current) {
+      // Phát nhạc khi bắt đầu quay
+      if (youtubeId && playerRef.current) {
         playerRef.current.seekTo(PLAY_TIME, true)
         playerRef.current.playVideo()
+      } else if (isDirectAudio && directAudioRef.current) {
+        directAudioRef.current.currentTime = 0
+        directAudioRef.current.play().catch(() => {})
       }
     }
+    
+    // Dừng nhạc khi ngừng quay (nhưng không dừng ngay khi component update)
+    if (!isDrawing && prevIsDrawing.current) {
+      // Dừng nhạc direct audio
+      if (directAudioRef.current) {
+        directAudioRef.current.pause()
+        directAudioRef.current.currentTime = 0
+      }
+    }
+    
     prevIsDrawing.current = isDrawing
-  }, [isDrawing, participants])
+  }, [isDrawing, participants, youtubeId, isDirectAudio])
 
-  // Tạo extendedList đủ dài để quay nhiều vòng
-  const extendedList = useMemo(
-    () => Array.from({ length: REPEAT }, () => shuffledList).flat(),
-    [shuffledList]
-  )
+  // Tạo extendedList đủ dài để quay nhiều vòng (đảm bảo tối thiểu MIN_ITEMS_TO_SPIN items)
+  const extendedList = useMemo(() => {
+    if (shuffledList.length === 0) return []
+    // Tính số lần lặp cần thiết để đạt tối thiểu MIN_ITEMS_TO_SPIN items
+    const repeatCount = Math.max(Math.ceil(MIN_ITEMS_TO_SPIN / shuffledList.length) + 2, 3)
+    return Array.from({ length: repeatCount }, () => shuffledList).flat()
+  }, [shuffledList])
 
-  const easeExpo = [0.19, 1, 0.22, 1]
+  // Easing curve: nhanh lâu, chậm rất ngắn ở cuối
+  // [0.02, 0.95, 0.05, 1] - quay nhanh 95% thời gian, chỉ chậm 5% cuối
+  const easeSmooth = [0.02, 0.99, 0.01, 1]
 
+  // Animation quay - chỉ chạy khi shuffledList thay đổi và isDrawing = true
   useEffect(() => {
-    if (!isDrawing || shuffledList.length === 0) return
+    if (!isDrawing || shuffledList.length === 0 || hasCalledWinner.current) return
+    
+    // Tìm người chiến thắng
     let winnerIdx: number
     const targetId = parseInt(gifts?.description || '0')
     winnerIdx = shuffledList.findIndex(p => p.id === targetId)
     if (winnerIdx === -1) {
-      winnerIdx = Math.floor(Math.random() * shuffledList.length) // chọn ngẫu nhiên
+      winnerIdx = Math.floor(Math.random() * shuffledList.length)
     }
-    const targetIdx = ROUNDS * shuffledList.length + winnerIdx
+    
+    // Tính vị trí dừng: đảm bảo quay qua ít nhất MIN_ITEMS_TO_SPIN items
+    const minSpinItems = MIN_ITEMS_TO_SPIN
+    const repeatCount = Math.floor(minSpinItems / shuffledList.length)
+    const targetIdx = repeatCount * shuffledList.length + winnerIdx
     const targetY = -(targetIdx * ITEM_HEIGHT - CENTER_SLOT * ITEM_HEIGHT)
 
     controls.set({ y: 0 })
     controls
-      .start({ y: targetY, transition: { duration: DURATION, ease: easeExpo } })
+      .start({ y: targetY, transition: { duration: spinDuration, ease: easeSmooth } })
       .then(() => {
+        // Kiểm tra lại để tránh gọi nhiều lần
+        if (hasCalledWinner.current) return
+        hasCalledWinner.current = true
+        
+        // Dừng nhạc YouTube
         if (playerRef.current) {
           playerRef.current.stopVideo()
+        }
+        // Dừng direct audio
+        if (directAudioRef.current) {
+          directAudioRef.current.pause()
+          directAudioRef.current.currentTime = 0
         }
         setWinnerListIdx(targetIdx)
         const winner = extendedList[targetIdx]
@@ -106,7 +174,8 @@ export default function SlotMachine({
           onWinner?.(winner)
         }
       })
-  }, [isDrawing, shuffledList, controls, onWinner, extendedList, gifts])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffledList]) // Chỉ phụ thuộc vào shuffledList - shuffledList chỉ thay đổi khi bắt đầu quay mới
 
   if (!participants.length) {
     return (
@@ -152,25 +221,36 @@ export default function SlotMachine({
       </div>
 
       {/* Nhạc nền YouTube (ẩn) */}
-      {YOUTUBE_ID && (
+      {youtubeId && (
         <div style={{ width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
           <YouTube
-            videoId={YOUTUBE_ID}
+            videoId={youtubeId}
             opts={{
               playerVars: {
                 autoplay: 0,
                 controls: 0,
                 start: PLAY_TIME,
-                playlist: YOUTUBE_ID, // cần thiết để loop
+                playlist: youtubeId, // cần thiết để loop
                 loop: 1,
                 modestbranding: 1,
                 fs: 0
               }
             }}
             onReady={onReady}
-            onStateChange={onStateChange} // Thêm sự kiện này
+            onStateChange={onStateChange}
           />
         </div>
+      )}
+
+      {/* Nhạc nền direct audio (ẩn) */}
+      {isDirectAudio && (
+        <audio
+          ref={directAudioRef}
+          src={spinningAudioUrl}
+          preload="auto"
+          loop
+          hidden
+        />
       )}
     </div>
   )

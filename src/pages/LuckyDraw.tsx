@@ -6,6 +6,7 @@ import PluseDots from '@/components/PluseDots'
 import ButtonDraw from '@/components/ButtonDraw'
 import BorderBg from '@/components/BorderBg'
 import Confetti from '@/components/confetti'
+import Settings, { useAudioSettings } from '@/components/Settings'
 
 import { getDataListPrizes, getDataListAttendees, getDataListSessions, getDataLuckyDrawHistory } from '@/api/getData'
 import type { Attendee } from '@/types/attendee'
@@ -17,7 +18,14 @@ let attendeesCache: Attendee[] | null = null
 let prizesCache: any[] | null = null
 let sessionsCache: Session[] | null = null
 
-function LuckyDraw() {
+interface LuckyDrawProps {
+  backgroundImage: string
+  onBackgroundImageChange: (url: string) => void
+  spinDuration: number
+  onSpinDurationChange: (duration: number) => void
+}
+
+function LuckyDraw({ backgroundImage, onBackgroundImageChange, spinDuration, onSpinDurationChange }: LuckyDrawProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isDrawing, setDrawing] = useState(false)
   const [winner, setWinner] = useState<Attendee | null>(null)
@@ -29,6 +37,7 @@ function LuckyDraw() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
+  const [audioSettings, updateAudioSettings] = useAudioSettings()
   // const [showHistoryModal, setShowHistoryModal] = useState(false)
   // const [history, setHistory] = useState<LuckyDrawLog[]>([])
   // const [historyLoading, setHistoryLoading] = useState(false)
@@ -124,7 +133,7 @@ function LuckyDraw() {
     }
   }
 
-  // Thực hiện quay
+  // Thực hiện quay - sử dụng spinDuration từ settings
   const drawWinner = () => {
     if (attendees.length === 0 || isDrawing || uniqueGifts.length === 0) return
 
@@ -134,10 +143,12 @@ function LuckyDraw() {
     setWinner(null)
     setShowConfetti(false)
 
+    // Timeout = spinDuration + 500ms buffer
+    const spinTimeout = (spinDuration * 1000) + 500
     setTimeout(() => {
       setDrawing(false)
       setDrawCount(prev => prev + 1)
-    }, 6500)
+    }, spinTimeout)
   }
 
   // Xử lý mở/đóng dialog
@@ -156,45 +167,34 @@ function LuckyDraw() {
     </div>
   )
 
+  // Xử lý thay đổi session từ Settings
+  const handleSessionChange = (session: Session | null) => {
+    if (session === null) {
+      setSelectedSession(null)
+      // Show all attendees when no session is selected
+      setAttendees(attendeesCache || [])
+    } else {
+      setSelectedSession(session)
+    }
+  }
+
   return (
     <div className='text-center flex-col relative'>
       {loadingOverlay}
       {showConfetti && <Confetti active={showConfetti} />}
       
-      {/* Session Selector at Top Right */}
-      <div className='fixed top-3 right-6 z-1 w-64'>
-        <select
-          value={selectedSession?.id.toString() ?? ''}
-          onChange={(e) => {
-            if (e.target.value === '') {
-              setSelectedSession(null)
-              // Show all attendees when no session is selected
-              setAttendees(attendeesCache || [])
-            } else {
-              const session = sessions.find(s => s.id === parseInt(e.target.value))
-              if (session) {
-                setSelectedSession(session)
-              }
-            }
-          }}
-          className='bg-gradient-to-r from-[#00599b] via-blue-400 to-[#00599b] text-white font-bold py-2 px-4 rounded-lg shadow-inner border border-white/30 cursor-pointer w-full text-center hover:from-blue-600 hover:to-blue-400 transition-all appearance-none'
-        >
-          <option value='' className='bg-blue-500'>Select a Session</option>
-          {sessions.length === 0 ? (
-            <option className='text-center bg-blue-500'>Đang tải...</option>
-          ) : (
-            sessions.map((session) => (
-              <option
-                key={session.id}
-                value={session.id.toString()}
-                className='bg-blue-500 font-bold text-white text-center'
-              >
-                {session.name}
-              </option>
-            ))
-          )}
-        </select>
-      </div>
+      {/* Settings Button */}
+      <Settings
+        audioSettings={audioSettings}
+        onAudioSettingsChange={updateAudioSettings}
+        sessions={sessions}
+        selectedSession={selectedSession}
+        onSessionChange={handleSessionChange}
+        backgroundImage={backgroundImage}
+        onBackgroundImageChange={onBackgroundImageChange}
+        spinDuration={spinDuration}
+        onSpinDurationChange={onSpinDurationChange}
+      />
 
       <motion.div
         className='relative mb-8 text-center'
@@ -241,6 +241,9 @@ function LuckyDraw() {
           prize={selectedGift}
           onDialogOpen={handleDialogOpen}
           onWinnerSelected={handleWinnerSelected}
+          spinningAudioUrl={audioSettings.spinningAudio}
+          winnerAudioUrl={audioSettings.winnerAudio}
+          spinDuration={spinDuration}
         />
 
         <div className='mt-6 text-center'>
