@@ -7,6 +7,7 @@ import ButtonDraw from '@/components/ButtonDraw'
 import BorderBg from '@/components/BorderBg'
 import Confetti from '@/components/confetti'
 import Settings, { useAudioSettings } from '@/components/Settings'
+import History from '@/components/History'
 
 import { getDataListPrizes, getDataListAttendees, getDataListSessions, getDataLuckyDrawHistory } from '@/api/getData'
 import type { Attendee } from '@/types/attendee'
@@ -183,18 +184,22 @@ function LuckyDraw({ backgroundImage, onBackgroundImageChange, spinDuration, onS
       {loadingOverlay}
       {showConfetti && <Confetti active={showConfetti} />}
       
-      {/* Settings Button */}
-      <Settings
-        audioSettings={audioSettings}
-        onAudioSettingsChange={updateAudioSettings}
-        sessions={sessions}
-        selectedSession={selectedSession}
-        onSessionChange={handleSessionChange}
-        backgroundImage={backgroundImage}
-        onBackgroundImageChange={onBackgroundImageChange}
-        spinDuration={spinDuration}
-        onSpinDurationChange={onSpinDurationChange}
-      />
+      {/* Toolbar - góc phải trên */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-2 bg-black/30 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl">
+        <History />
+        <div className="w-px h-8 bg-white/20" /> {/* Divider */}
+        <Settings
+          audioSettings={audioSettings}
+          onAudioSettingsChange={updateAudioSettings}
+          sessions={sessions}
+          selectedSession={selectedSession}
+          onSessionChange={handleSessionChange}
+          backgroundImage={backgroundImage}
+          onBackgroundImageChange={onBackgroundImageChange}
+          spinDuration={spinDuration}
+          onSpinDurationChange={onSpinDurationChange}
+        />
+      </div>
 
       <motion.div
         className='relative mb-8 text-center'

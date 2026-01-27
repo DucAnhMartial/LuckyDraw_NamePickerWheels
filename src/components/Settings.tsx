@@ -181,10 +181,11 @@ export default function Settings({
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <button
-          className="fixed top-3 right-6 z-50 p-2.5 bg-gradient-to-r from-[#00599b] to-blue-500 text-white rounded-full shadow-lg hover:from-blue-600 hover:to-blue-400 transition-all duration-200 hover:scale-110"
+          className="p-2.5 bg-gradient-to-r from-[#00599b] to-blue-500 text-white rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-400 transition-all duration-200 hover:scale-105 flex items-center gap-2"
           title="Cài đặt"
         >
           <SettingsIcon className="h-5 w-5" />
+          <span className="text-sm font-medium hidden sm:inline">Cài đặt</span>
         </button>
       </SheetTrigger>
       <SheetContent className="bg-gradient-to-b from-[#002f4b] to-[#00599b] border-l-2 border-blue-400/50 text-white overflow-y-auto">
